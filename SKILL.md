@@ -22,12 +22,14 @@ Business decision rights belong to humans. Engineering defense decisions belong 
 Follow this status machine for every triggered request:
 
 1. Normalize the requirement.
-2. Inspect the repository when files are available.
-3. Classify risks with Risk Gate Policy.
-4. Resolve decisions with deterministic priority.
-5. Plan and implement with complexity control after approval.
-6. Verify with existing tests, lint, type checks, builds, or the closest available checks.
-7. Deliver a business_flat report.
+2. Apply Repository Inspection Gate when the request involves code changes.
+3. Apply business_flat normalization and review tables.
+4. Classify risks with Risk Gate Policy.
+5. Resolve decisions with deterministic priority.
+6. Plan or stop according to the gate result.
+7. Implement with complexity control after approval.
+8. Verify with existing tests, lint, type checks, builds, or the closest available checks.
+9. Deliver a business_flat report.
 
 ## Deterministic Decision Priority
 
@@ -68,12 +70,28 @@ Common Chinese phrases need explicit translation:
 
 ## Repository Inspection
 
-Before planning code changes, inspect the current project shape:
+Pure PRD review may proceed without repository inspection when the user only asks for risk review and no repository is available.
+
+For code changes, bug fixes, refactors, feature implementation, integration work, or requests to "直接改代码", apply this as a hard gate before planning or coding:
 
 - Locate similar features, routes, services, helpers, components, tests, and commands.
+- Read the nearest existing implementation and related tests before proposing edits.
 - Identify whether the request touches frontend, backend, database, permissions, cache, async jobs, external systems, or release behavior.
 - Prefer existing project conventions over new abstractions.
 - Do not ask the human for facts that can be discovered from files.
+- Output a `Repository Inspection Summary` table before any implementation plan or file edit.
+- Do not write code, create files, or propose detailed implementation until the inspection summary has concrete file evidence.
+- If repository files are unavailable, say so explicitly and do not pretend to know the codebase.
+
+Required `Repository Inspection Summary` fields:
+
+| Area | Evidence |
+| --- | --- |
+| Related files | Concrete file paths |
+| Existing pattern | Current implementation style |
+| Reuse target | Existing service/helper/component/hook/API |
+| Risk surface | Frontend/backend/db/permission/cache/job/external |
+| Edit boundary | Minimal planned change area |
 
 ## Risk Gate Policy
 

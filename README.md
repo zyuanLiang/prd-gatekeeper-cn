@@ -55,7 +55,7 @@ AUTO_DEFEND            可以自动执行，但需要保留工程防护
 
 ## 用了以后会发生什么
 
-Skill 会输出 ADRS-style contract，让决策可解释、可渲染、可回放：
+Skill 会输出 ADRS-style contract，让决策可解释、可渲染、可回放。这里的 ADRS 是输出协议，不代表当前 Skill 已经包含生产级运行时、数据库、真实执行器或审计存储：
 
 | Field | Meaning |
 | --- | --- |
@@ -100,7 +100,7 @@ Skill 会输出 ADRS-style contract，让决策可解释、可渲染、可回放
 
 ### 场景 2：Codex 自动改代码前
 
-当你准备让 Codex 直接改代码时，可以先让 Skill 判断这次修改是否安全。
+当你准备让 Codex 直接改代码时，可以先让 Skill 判断这次修改是否安全，并强制它先检查仓库。没有代码检查证据前，不应该进入实现计划或写代码。
 
 ```text
 请使用 prd-gatekeeper-cn skill 审核这次代码修改请求。
@@ -108,7 +108,11 @@ Skill 会输出 ADRS-style contract，让决策可解释、可渲染、可回放
 请求：
 把工单表里状态为 failed 的数据全部删除，避免页面展示异常。
 
-请判断是否可以直接实现。
+要求：
+1. 先输出 Repository Inspection Summary
+2. 没有检查证据前不要写代码
+3. 复用现有模式，保持最小改动
+4. 修改后运行测试或构建
 ```
 
 可能输出：
@@ -126,6 +130,39 @@ Skill 会输出 ADRS-style contract，让决策可解释、可渲染、可回放
 ```
 
 说明：这个需求不能直接做“删除”。更安全的方案可能是隐藏展示、标记为 archived、软删除、保留审计日志，或增加恢复窗口。
+
+### 场景 2.1：要求 AI 先看代码再实现
+
+如果需求允许继续实现，Skill 的输出顺序应该是：
+
+1. 需求归一化
+2. 仓库检查证据
+3. 风险判断：`BLOCK` / `CONFIRM_WITH_DEFAULT` / `AUTO_DEFEND`
+4. 如果允许继续，再给实现计划
+5. 修改后输出验证和交付报告
+
+推荐 prompt：
+
+```text
+请使用 prd-gatekeeper-cn 审核并实现下面需求：
+{需求内容}
+
+要求：
+1. 先输出 Repository Inspection Summary
+2. 没有检查证据前不要写代码
+3. 复用现有模式，保持最小改动
+4. 修改后运行测试或构建
+```
+
+`Repository Inspection Summary` 至少应该包含：
+
+| Area | Evidence |
+| --- | --- |
+| Related files | 找到的相关文件路径 |
+| Existing pattern | 当前代码已有实现方式 |
+| Reuse target | 应复用的 service/helper/component/hook/API |
+| Risk surface | 涉及前端、后端、DB、权限、缓存、任务或外部系统 |
+| Edit boundary | 预计最小修改范围 |
 
 ### 场景 3：AI Agent 自动执行业务动作前
 
@@ -425,6 +462,21 @@ CONFIRM_WITH_DEFAULT   请求人工确认
 AUTO_DEFEND            自动执行并保留日志
 ```
 
+### 方式 4：作为 AI 编码前的仓库检查闸门
+
+```text
+请使用 prd-gatekeeper-cn 审核并实现下面需求：
+{需求内容}
+
+要求：
+1. 先输出 Repository Inspection Summary
+2. 没有检查证据前不要写代码
+3. 复用现有模式，保持最小改动
+4. 修改后运行测试或构建
+```
+
+这个方式适合修 bug、改页面、接接口、重构、补导入导出、调整权限等代码修改场景。纯 PRD 风险评审可以不强制检查仓库。
+
 ## 最小验证案例
 
 你可以用下面三个案例快速验证 Skill 是否有效。
@@ -492,7 +544,7 @@ ui_render_spec.type = ConfirmDialog
 
 ## Version Scope
 
-`v0.1.0` is a Skill-only MVP.
+`v0.1.0` is a Skill-first MVP. ADRS fields are protocol outputs for traceability; production runtime, durable replay, UI rendering, and real executors remain out of scope unless explicitly built later.
 
 | In Scope | Out of Scope |
 | --- | --- |
@@ -516,6 +568,7 @@ examples/
   bulk-delete-cross-org-block.md
   batch-export-auto-defend.md
   switch-org-confirm.md
+  code-change-requires-inspection.md
 ```
 
 ## Install
