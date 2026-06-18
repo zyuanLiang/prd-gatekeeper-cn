@@ -44,6 +44,20 @@ Do not include an implementation plan in the same response.
 | Confirmed Defaults | Approved defaults |
 | Unknowns | Remaining gaps |
 
+## Repository Inspection Summary
+
+Use this before any implementation plan or code edit when the request involves code changes, bug fixes, refactors, feature work, or integration work.
+
+| Area | Evidence |
+| --- | --- |
+| Related files | Concrete file paths |
+| Existing pattern | Current implementation style |
+| Reuse target | Existing service/helper/component/hook/API |
+| Risk surface | Frontend/backend/db/permission/cache/job/external |
+| Edit boundary | Minimal planned change area |
+
+If repository files are unavailable, state that explicitly and do not invent paths, modules, or patterns.
+
 ## Engineering Change Matrix
 
 | Module | File Path | Core Change | Risk Defense | Status |
