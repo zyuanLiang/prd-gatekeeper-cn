@@ -1,0 +1,4 @@
+interface:
+  display_name: "PRD Gatekeeper CN"
+  short_description: "Chinese PRD risk gate and delivery workflow"
+  default_prompt: "Use $prd-gatekeeper-cn to normalize a Chinese PRD or Issue, classify Risk Gate items, and produce a business_flat confirmation matrix before implementation."

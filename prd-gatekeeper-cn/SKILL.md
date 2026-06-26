@@ -1,9 +1,11 @@
 ---
 name: prd-gatekeeper-cn
-description: 中文研发需求到实现前的 Tech Lead 风险网关。Use when Codex receives Chinese PRDs, Issues, chat requirements, product notes, or business requests and must normalize intent, inspect the repository, classify Risk Gate items (BLOCK / CONFIRM_WITH_DEFAULT / AUTO_DEFEND), prevent business logic from being piled into main files, produce business_flat review tables, plan implementation, verify changes, and deliver a product/engineering-readable report before or after coding.
+description: AI coding safety gate for Chinese PRDs and business requests. Use when Codex receives Chinese PRDs, Issues, chat requirements, product notes, or business requests and must normalize intent, inspect the repository, classify Risk Gate items (BLOCK / CONFIRM_WITH_DEFAULT / AUTO_DEFEND), prevent business logic from being piled into main files, produce business_flat review tables, plan implementation, verify changes, and deliver a product/engineering-readable report before or after coding.
 ---
 
 # PRD Gatekeeper CN
+
+Use this Skill as a pre-implementation safety gate before Codex or an AI Agent changes code, runs a risky business action, performs batch operations, or touches permission-sensitive requirements.
 
 ## Core Contract
 
