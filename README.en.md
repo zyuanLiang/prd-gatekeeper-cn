@@ -9,7 +9,7 @@ It makes Codex / AI agents pause before changing code or executing risky busines
 User request:
 
 ```text
-Extract the Xianyu product scraping logic into a shared helper and make it compatible with the new page structure.
+Extract the ecommerce product-detail scraping logic into a shared helper and make it compatible with the new page structure.
 ```
 
 A normal agent may eagerly:
@@ -56,7 +56,7 @@ Then ask Codex:
 Use the prd-gatekeeper-cn skill to review this request.
 
 Request:
-Extract the Xianyu product scraping logic into a shared helper and make it compatible with the new page structure.
+Extract the ecommerce product-detail scraping logic into a shared helper and make it compatible with the new page structure.
 
 Requirements:
 First output Repository Inspection Summary. Identify edit boundary, shared-module blast radius, parameter-scope changes, regression scope, decision, risk_level, execution_plan, ui_render_spec, decision_trace, and replay_id.
@@ -77,7 +77,7 @@ Expected: `CONFIRM_WITH_DEFAULT`, `MEDIUM`, `ConfirmDialog`.
 | File | Scenario |
 | --- | --- |
 | `examples/refactor-expanded-param-scope-confirm.md` | Refactor expands parameter scope |
-| `examples/xianyu-scraper-broke-core-flow-confirm.md` | Scraper page adaptation may break old core flows |
+| `examples/ecommerce-scraper-core-flow-confirm.md` | Scraper page adaptation may break old core flows |
 | `examples/shared-helper-blast-radius-confirm.md` | Shared helper changes need blast-radius review |
 | `examples/ai-generated-security-hole-block.md` | Weakening auth or security checks must be blocked |
 

@@ -13,7 +13,7 @@
 用户说：
 
 ```text
-把闲鱼商品抓取逻辑抽成公共方法，顺便兼容新版页面结构。
+把电商商品详情页抓取逻辑抽成公共方法，顺便兼容新版页面结构。
 ```
 
 普通 Agent 可能会很积极：
@@ -81,7 +81,7 @@ Then ask Codex to use it:
 请使用 prd-gatekeeper-cn skill 审核下面需求。
 
 需求：
-把闲鱼商品抓取逻辑抽成公共方法，顺便兼容新版页面结构。
+把电商商品详情页抓取逻辑抽成公共方法，顺便兼容新版页面结构。
 
 要求：
 1. 必须先输出 Repository Inspection Summary
@@ -114,7 +114,7 @@ Expected result:
 
 | Situation | Without this Skill | With this Skill |
 | --- | --- | --- |
-| 闲鱼页面爬取适配 | 可能改公共 parser，顺手影响其他核心流程 | 先列 edit boundary、旧样本回归、禁止触碰共享模块 |
+| 第三方页面爬取适配 | 可能改公共 parser，顺手影响其他核心流程 | 先列 edit boundary、旧样本回归、禁止触碰共享模块 |
 | 重构公共方法 | 可能把业务差异抽没，改变过滤、排序、缓存、重试 | 先确认行为是否必须完全等价 |
 | 扩大参数范围 | 可能把单用户、单店铺、在售状态改成更宽范围 | 先 `CONFIRM_WITH_DEFAULT`，要求确认范围变化 |
 | 修小 bug | 可能顺手改全局配置、auth helper、query builder | 先识别 blast radius 和 forbidden touch list |
@@ -213,13 +213,13 @@ Expected:
 | `risk_level` | `MEDIUM` |
 | `ui_render_spec.type` | `ConfirmDialog` |
 
-### Case 2: 闲鱼页面适配不能改坏核心流程
+### Case 2: 页面适配不能改坏核心流程
 
 ```text
 请使用 prd-gatekeeper-cn skill 审核下面需求。
 
 需求：
-修复闲鱼新版商品详情页爬取失败的问题，只允许适配新版页面结构，不允许影响旧页面和其他平台抓取。
+修复某个电商新版商品详情页爬取失败的问题，只允许适配新版页面结构，不允许影响旧页面和其他平台抓取。
 
 要求：
 必须先输出 Repository Inspection Summary，列出 forbidden touch list 和 regression scope。
@@ -258,7 +258,7 @@ More examples:
 | File | Scenario |
 | --- | --- |
 | `examples/refactor-expanded-param-scope-confirm.md` | 重构导致参数范围扩大，需要确认 |
-| `examples/xianyu-scraper-broke-core-flow-confirm.md` | 页面适配必须守住旧核心流程 |
+| `examples/ecommerce-scraper-core-flow-confirm.md` | 页面适配必须守住旧核心流程 |
 | `examples/shared-helper-blast-radius-confirm.md` | 共享 helper 修改需要确认影响面 |
 | `examples/ai-generated-security-hole-block.md` | 放宽鉴权或安全校验必须阻断 |
 | `examples/ai-delete-failed-orders-block.md` | AI 删除 failed 工单前必须阻断 |
@@ -309,7 +309,7 @@ references/
   runtime-architecture.md
 examples/
   refactor-expanded-param-scope-confirm.md
-  xianyu-scraper-broke-core-flow-confirm.md
+  ecommerce-scraper-core-flow-confirm.md
   shared-helper-blast-radius-confirm.md
   ai-generated-security-hole-block.md
   ai-delete-failed-orders-block.md

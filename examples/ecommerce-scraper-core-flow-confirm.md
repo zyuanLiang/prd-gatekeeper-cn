@@ -1,4 +1,4 @@
-# Golden Case: 闲鱼页面适配必须守住旧核心流程
+# Golden Case: 页面适配必须守住旧核心流程
 
 ## Input
 
@@ -6,7 +6,7 @@
 请使用 prd-gatekeeper-cn skill 审核下面需求。
 
 需求：
-修复闲鱼新版商品详情页爬取失败的问题，只允许适配新版页面结构，不允许影响旧页面和其他平台抓取。
+修复某个电商新版商品详情页爬取失败的问题，只允许适配新版页面结构，不允许影响旧页面和其他平台抓取。
 
 要求：
 必须先输出 Repository Inspection Summary，列出 forbidden touch list、regression scope、decision、risk_level、execution_plan、ui_render_spec、decision_trace、replay_id。
