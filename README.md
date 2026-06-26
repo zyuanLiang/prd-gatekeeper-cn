@@ -1,61 +1,253 @@
-# prd-gatekeeper-cn
+# AI Coding Safety Gate CN
 
-`prd-gatekeeper-cn` 是一个面向中文研发场景的 Codex Skill。
+让 Codex / AI Agent 在改代码或执行业务动作前，先像 Tech Lead 一样做风险审查。
 
-它不是 PRD 生成器，也不是完整运行时系统。它的作用是在 Codex、AI Agent 或研发流程准备执行需求之前，先对需求做风险审查，并输出结构化决策结果。
+`prd-gatekeeper-cn` 是一个面向中文 PRD、Issue、产品需求和业务指令的 Codex Skill。它的目标不是让 AI 更快动手，而是防止 AI 在权限不清、数据边界不清、批量操作不可逆时直接动手。
 
 一句话：
 
-> 它是 AI 执行前的风险网关。
+> 防止 AI 乱改业务代码、乱删数据、乱越权执行。
 
-## 适合放在哪些动作之前
+## 30 秒例子
 
-- PRD 评审
-- 需求拆解
-- Codex 自动改代码前
-- AI Agent 自动执行前
-- 批量数据操作前
-- 跨组织 / 多租户数据访问前
-- 删除、覆盖、状态变更等高风险操作前
-
-核心目标：
-
-> 防止 AI 或研发流程在需求不清楚、权限不明确、数据边界不清、风险不可逆的情况下直接执行。
-
-## 它解决什么问题
-
-真实研发里，很多需求表面很小：
-
-- 批量删除 200 条工单
-- 导出 100 条商品数据
-- 切换组织查看数据
-- 覆盖导入一批 Excel
-- 自动发布商品
-- 修复线上脏数据
-- 让 AI Agent 自动处理异常任务
-
-但这些需求背后可能隐藏风险：
-
-- 是否会影响其他组织的数据？
-- 是否是物理删除？
-- 是否可恢复？
-- 是否需要审计日志？
-- 是否会绕过权限？
-- 是否会触发不可逆状态变更？
-- 是否需要业务负责人确认？
-- 是否应该默认阻断，而不是继续执行？
-
-`prd-gatekeeper-cn` 会把这些隐含风险显式化，并给出三类决策：
+用户说：
 
 ```text
-BLOCK                  直接阻断，不允许执行
-CONFIRM_WITH_DEFAULT   需要确认，并给出安全默认策略
-AUTO_DEFEND            可以自动执行，但需要保留工程防护
+把工单表里状态为 failed 的数据全部删除，避免页面展示异常。
 ```
 
-## 用了以后会发生什么
+普通 Agent 可能会直接去找表、改接口、写删除逻辑。
 
-Skill 会输出 ADRS-style contract，让决策可解释、可渲染、可回放：
+使用 `prd-gatekeeper-cn` 后，期望先得到风险判断：
+
+| decision | risk_level | reason |
+| --- | --- | --- |
+| `BLOCK` | `HIGH` | 物理删除、状态数据不可逆、可能破坏审计链路 |
+
+它会先追问最小必要问题：
+
+| Question | Why |
+| --- | --- |
+| 是物理删除、软删除、归档，还是仅隐藏展示？ | 删除语义决定是否可恢复 |
+| 是否只影响当前组织的数据？ | 防止跨组织 / 多租户越权 |
+| 谁有权限执行这个操作？ | 防止绕过角色和数据权限 |
+| 是否需要记录操作人、时间、原因和影响 ID？ | 保留审计与回滚线索 |
+
+这就是这个 Skill 的核心价值：**在 AI 动手前，先把高风险业务决策拦下来。**
+
+## Why
+
+真实研发里，很多需求看起来很小：
+
+- 批量删除 200 条工单
+- 覆盖导入一批 Excel
+- 切换组织查看数据
+- 修复线上脏数据
+- 自动发布商品
+- 给订单列表增加批量导出
+- 让 Agent 自动处理异常任务
+
+但这些需求背后经常藏着高风险问题：
+
+- 是否会影响其他组织的数据？
+- 是否是不可恢复的物理删除？
+- 是否会绕过权限？
+- 是否会改变订单、支付、库存、履约等关键状态？
+- 是否需要审计日志和回滚方案？
+- 是否应该先 dry-run，而不是直接执行？
+- 是否应该要求业务负责人确认？
+
+`prd-gatekeeper-cn` 把这些隐含风险显式化，并输出稳定的决策结果。
+
+## Quick Start
+
+Clone or copy this Skill into your Codex skills directory:
+
+```bash
+git clone https://github.com/zyuanLiang/prd-gatekeeper-cn.git ~/.codex/skills/prd-gatekeeper-cn
+```
+
+Then ask Codex to use it:
+
+```text
+请使用 prd-gatekeeper-cn skill 审核下面需求。
+
+需求：
+把工单表里状态为 failed 的数据全部删除，避免页面展示异常。
+
+要求：
+必须输出 decision、risk_level、execution_plan、ui_render_spec、decision_trace、replay_id。
+```
+
+Expected result:
+
+```json
+{
+  "decision": "BLOCK",
+  "risk_level": "HIGH",
+  "ui_render_spec": {
+    "type": "HardStopPanel",
+    "theme": "red",
+    "interaction_mode": "blocked"
+  },
+  "decision_trace": [
+    "rule: Risk Gate.BLOCK.physical_deletion matched",
+    "rule: Risk Gate.BLOCK.irreversible_status_or_data_change matched",
+    "final: BLOCK"
+  ]
+}
+```
+
+## Before / After
+
+| Situation | Without this Skill | With this Skill |
+| --- | --- | --- |
+| 删除 failed 工单 | 可能直接写删除逻辑 | 先 `BLOCK`，确认删除语义、权限、组织边界和审计 |
+| 导出订单字段和页面一致 | 可能自行猜字段 | 先识别字段映射歧义，输出确认矩阵 |
+| 切换组织查看数据 | 可能只做前端切换 | 先确认授权、成员关系、跨组织权限和日志 |
+| 只读导出当前组织数据 | 可能直接放行且无防护 | `AUTO_DEFEND`，补组织校验、数量限制和敏感字段过滤 |
+
+## Core Scenarios
+
+### 1. AI 改代码前
+
+当用户说“直接改代码”时，本 Skill 要求 Codex 先检查仓库：
+
+| Area | Evidence |
+| --- | --- |
+| Related files | 找到的路由、服务、组件、测试、API client |
+| Existing pattern | 当前项目已有实现方式 |
+| Reuse target | 应复用的 service/helper/hook/query/API |
+| Risk surface | frontend/backend/db/permission/cache/job/external |
+| Edit boundary | 最小计划修改范围 |
+
+没有具体文件证据前，不应该进入实现计划或写代码。
+
+### 2. 批量删除 / 覆盖 / 状态变更
+
+涉及物理删除、批量覆盖、订单状态、库存、余额、结算、退款、发布等动作时，默认先做风险门禁。
+
+高风险场景应该 `BLOCK`。可控但缺少策略的场景应该 `CONFIRM_WITH_DEFAULT`，例如先 dry-run、限制范围、生成影响预览、保留回滚数据。
+
+### 3. 跨组织 / 权限 / 多租户边界
+
+任何“切换组织”“查看其他团队数据”“按原权限处理”的需求，都不能靠 Agent 猜。
+
+本 Skill 会要求明确：
+
+| Risk | Default |
+| --- | --- |
+| 目标组织授权缺失 | 默认不展示目标组织数据 |
+| 用户成员关系不明确 | 校验用户是否属于目标组织 |
+| 跨组织查看权限不明确 | 要求确认权限策略 |
+| 日志要求不明确 | 默认记录切换日志 |
+
+### 4. 复杂 PRD 进入开发前
+
+当需求范围太大、验收不清、业务规则散落在聊天里，本 Skill 会先做需求归一化：
+
+| Field | Required Content |
+| --- | --- |
+| Goal | 用户可见结果 |
+| Scope | 本次包含行为 |
+| Out of Scope | 明确不做或延期 |
+| Business Rules | 权限、数据边界、状态规则、字段规则 |
+| Acceptance | 可观察验收条件 |
+| Unknowns | 缺失决策、歧义、冲突 |
+
+## Decision Model
+
+`prd-gatekeeper-cn` 只输出三类决策：
+
+| decision | Meaning | Typical Use |
+| --- | --- | --- |
+| `BLOCK` | 直接阻断，不允许执行 | 钱、权限、跨租户、物理删除、不可逆状态、合规安全 |
+| `CONFIRM_WITH_DEFAULT` | 需要人工确认，并给出安全默认策略 | 字段映射、导入导出限制、分页、重试、兼容性、范围不清 |
+| `AUTO_DEFEND` | 可以自动执行，但必须保留工程防护 | 空值防护、loading/disabled、防重复点击、复用 helper、加测试 |
+
+决策优先级固定：
+
+| Priority | Layer | Required Behavior |
+| --- | --- | --- |
+| 1 | Risk Gate | 任何 `BLOCK` 停止实现，任何 `CONFIRM_WITH_DEFAULT` 暂停确认 |
+| 2 | business_flat | 用扁平表格呈现确认矩阵、风险和交付报告 |
+| 3 | SKILL.md workflow | 执行仓库检查、复杂度控制、验证和交付纪律 |
+| 4 | LLM fallback | 仅在规则和示例无法分类时使用，并记录不确定性 |
+
+## Copy-Paste Cases
+
+### Case 1: 高风险删除应该阻断
+
+```text
+请使用 prd-gatekeeper-cn skill 审核下面需求。
+
+需求：
+把工单表里状态为 failed 的数据全部删除，避免页面展示异常。
+
+要求：
+必须输出 decision、risk_level、execution_plan、ui_render_spec、decision_trace、replay_id。
+```
+
+Expected:
+
+| Field | Expected |
+| --- | --- |
+| `decision` | `BLOCK` |
+| `risk_level` | `HIGH` |
+| `ui_render_spec.type` | `HardStopPanel` |
+
+### Case 2: 只读导出可以自动防护
+
+```text
+请使用 prd-gatekeeper-cn skill 审核下面需求。
+
+需求：
+导出当前组织下 100 条商品候选数据，只读导出，不修改、不删除、不跨组织。
+
+要求：
+必须输出 decision、risk_level、execution_plan、ui_render_spec、decision_trace、replay_id。
+```
+
+Expected:
+
+| Field | Expected |
+| --- | --- |
+| `decision` | `AUTO_DEFEND` |
+| `risk_level` | `LOW` |
+| `ui_render_spec.type` | `SilentExecutionPanel` |
+
+### Case 3: 跨组织授权不明需要确认
+
+```text
+请使用 prd-gatekeeper-cn skill 审核下面需求。
+
+需求：
+用户要从当前组织切换到另一个组织查看数据，但当前请求没有提供明确授权信息。
+
+要求：
+必须输出 decision、risk_level、execution_plan、ui_render_spec、decision_trace、replay_id。
+```
+
+Expected:
+
+| Field | Expected |
+| --- | --- |
+| `decision` | `CONFIRM_WITH_DEFAULT` |
+| `risk_level` | `MEDIUM` |
+| `ui_render_spec.type` | `ConfirmDialog` |
+
+More examples:
+
+| File | Scenario |
+| --- | --- |
+| `examples/ai-delete-failed-orders-block.md` | AI 删除 failed 工单前必须阻断 |
+| `examples/cross-org-access-confirm.md` | 跨组织访问授权不明需要确认 |
+| `examples/readonly-export-auto-defend.md` | 当前组织只读导出可以自动防护 |
+| `examples/code-change-requires-inspection.md` | 代码修改前必须先检查仓库 |
+
+## Advanced: ADRS Output Contract
+
+所有输出必须包含：
 
 | Field | Meaning |
 | --- | --- |
@@ -66,446 +258,30 @@ Skill 会输出 ADRS-style contract，让决策可解释、可渲染、可回放
 | `decision_trace` | 命中的规则、覆盖关系、假设和最终路径 |
 | `replay_id` | 用于审计或后续回放的稳定标识 |
 
-## 典型使用场景
+UI render mapping:
 
-### 场景 1：PRD / 需求进入开发前
-
-当你拿到一个需求，不确定它是否有隐藏风险时，可以先让 Skill 审核。
-
-```text
-请使用 prd-gatekeeper-cn skill 审核下面这个需求。
-
-需求：
-我要批量删除 200 条工单，其中可能包含其他组织的数据。
-
-要求：
-必须输出 decision、risk_level、execution_plan、ui_render_spec、decision_trace、replay_id。
-```
-
-预期结果：
-
-```json
-{
-  "decision": "BLOCK",
-  "risk_level": "HIGH",
-  "ui_render_spec": {
-    "type": "HardStopPanel",
-    "theme": "red",
-    "interaction_mode": "blocked"
-  }
-}
-```
-
-这个结果表示：需求不能直接进入开发或执行，必须先确认权限、组织边界、删除方式和审计要求。
-
-### 场景 2：Codex 自动改代码前
-
-当你准备让 Codex 直接改代码时，可以先让 Skill 判断这次修改是否安全。
-
-```text
-请使用 prd-gatekeeper-cn skill 审核这次代码修改请求。
-
-请求：
-把工单表里状态为 failed 的数据全部删除，避免页面展示异常。
-
-请判断是否可以直接实现。
-```
-
-可能输出：
-
-```json
-{
-  "decision": "BLOCK",
-  "risk_level": "HIGH",
-  "decision_trace": [
-    "rule: Risk Gate.BLOCK.physical_deletion matched",
-    "rule: Risk Gate.BLOCK.irreversible_status_or_data_change matched",
-    "final: BLOCK"
-  ]
-}
-```
-
-说明：这个需求不能直接做“删除”。更安全的方案可能是隐藏展示、标记为 archived、软删除、保留审计日志，或增加恢复窗口。
-
-### 场景 3：AI Agent 自动执行业务动作前
-
-如果系统里有 AI 店长、自动运维 Agent、自动审核 Agent，在它准备执行动作前，可以先过 Gatekeeper。
-
-```text
-请使用 prd-gatekeeper-cn skill 审核下面的 Agent 动作。
-
-Agent 准备：
-自动发布 20 个商品，并跳过人工确认。
-
-上下文：
-商品素材已生成，但价格建议部分失败，部分商品缺少主图。
-```
-
-可能输出：
-
-```json
-{
-  "decision": "CONFIRM_WITH_DEFAULT",
-  "risk_level": "MEDIUM",
-  "ui_render_spec": {
-    "type": "ConfirmDialog",
-    "theme": "yellow",
-    "interaction_mode": "user_confirm"
-  }
-}
-```
-
-含义：这类动作不是绝对不能执行，但不应该完全自动跳过人工确认。默认策略可以是缺主图的不发布、价格建议失败的不发布、仅发布素材完整且价格完整的商品，并要求用户确认最终发布列表。
-
-### 场景 4：批量导出 / 只读操作
-
-不是所有批量操作都应该阻断。如果是只读导出、当前组织内、无权限越界、无数据修改，可以自动放行。
-
-```text
-请使用 prd-gatekeeper-cn skill 审核下面需求。
-
-需求：
-导出当前组织下 100 条商品候选数据，只读导出，不修改、不删除、不跨组织。
-```
-
-预期输出：
-
-```json
-{
-  "decision": "AUTO_DEFEND",
-  "risk_level": "LOW",
-  "ui_render_spec": {
-    "type": "SilentExecutionPanel",
-    "theme": "green",
-    "interaction_mode": "auto_execute"
-  }
-}
-```
-
-含义：可以继续执行，但仍然建议保留基础工程防护，例如限制导出范围、保留操作日志、校验组织 ID、限制导出数量、避免导出敏感字段。
-
-### 场景 5：切换组织 / 多租户数据隔离
-
-多组织、多租户系统里，“切换组织查看数据”是非常典型的灰色场景。
-
-```text
-请使用 prd-gatekeeper-cn skill 审核下面需求。
-
-需求：
-用户要从当前组织切换到另一个组织查看数据，但当前请求没有提供明确授权信息。
-```
-
-预期输出：
-
-```json
-{
-  "decision": "CONFIRM_WITH_DEFAULT",
-  "risk_level": "MEDIUM",
-  "ui_render_spec": {
-    "type": "ConfirmDialog",
-    "theme": "yellow",
-    "interaction_mode": "user_confirm"
-  }
-}
-```
-
-含义：不应该直接放行，也不一定直接 `BLOCK`。更合理的默认策略是要求确认授权、校验用户是否属于目标组织、校验跨组织查看权限、默认不展示目标组织数据，并记录切换日志。
-
-### 场景 6：Excel 导入 / 数据覆盖
-
-Excel 导入经常看起来是普通功能，但实际可能覆盖生产数据。
-
-```text
-请使用 prd-gatekeeper-cn skill 审核下面需求。
-
-需求：
-运营上传一个 Excel，系统根据 Excel 内容批量覆盖已有商品价格、库存和标题。
-```
-
-可能输出：
-
-```json
-{
-  "decision": "CONFIRM_WITH_DEFAULT",
-  "risk_level": "MEDIUM",
-  "ui_render_spec": {
-    "type": "ConfirmDialog",
-    "theme": "yellow",
-    "interaction_mode": "user_confirm"
-  },
-  "decision_trace": [
-    "rule: batch_update matched",
-    "rule: data_overwrite matched",
-    "final: CONFIRM_WITH_DEFAULT"
-  ]
-}
-```
-
-建议默认策略：先 dry-run 预览影响范围，展示将被修改的数据数量和字段 diff，禁止直接覆盖主键、组织 ID、状态机字段，保留导入记录和回滚文件，用户确认后再执行。
-
-### 场景 7：线上问题快速修复
-
-线上问题修复时，研发很容易为了快而直接写 SQL 或改逻辑。这个 Skill 适合做上线前风险提醒。
-
-```text
-请使用 prd-gatekeeper-cn skill 审核下面修复方案。
-
-方案：
-线上有 300 条异常订单状态错误，准备直接把它们全部更新为 completed。
-```
-
-可能输出：
-
-```json
-{
-  "decision": "CONFIRM_WITH_DEFAULT",
-  "risk_level": "MEDIUM",
-  "decision_trace": [
-    "rule: batch_status_change matched",
-    "rule: irreversible_status_or_data_change matched",
-    "final: CONFIRM_WITH_DEFAULT"
-  ]
-}
-```
-
-建议默认策略：先导出受影响数据，明确筛选条件，做 dry-run 统计，确认是否影响财务、履约、售后、审计，保留回滚 SQL，小批量执行。如果状态变更不可逆，或者影响跨组织数据，则应升级为 `BLOCK`。
-
-### 场景 8：需求太大、范围不清
-
-这个 Skill 也可以用来识别“需求没有收口”的情况。
-
-```text
-请使用 prd-gatekeeper-cn skill 审核下面需求。
-
-需求：
-重构整个商品生产线，让 AI 自动完成选品、素材、文案、发布和异常处理。
-```
-
-可能输出：
-
-```json
-{
-  "decision": "CONFIRM_WITH_DEFAULT",
-  "risk_level": "MEDIUM",
-  "decision_trace": [
-    "rule: scope_too_large matched",
-    "rule: automation_boundary_unclear matched",
-    "final: CONFIRM_WITH_DEFAULT"
-  ]
-}
-```
-
-建议默认策略：拆成多个阶段，先定义不可自动执行的动作，先做只读分析和 dry-run，再做人工确认后的半自动执行，最后再考虑全自动闭环。
-
-## 三类决策含义
-
-### BLOCK
-
-表示：不能继续执行。
-
-适用情况：
-
-- 批量物理删除
-- 跨组织 / 跨租户数据操作
-- 不可逆状态变更
-- 权限不明确
-- 可能破坏审计链路
-- 可能影响其他用户或组织
-- 可能让 AI 越权执行
-
-UI 表现：
-
-```json
-{
-  "type": "HardStopPanel",
-  "theme": "red",
-  "interaction_mode": "blocked"
-}
-```
-
-系统行为：不执行、不生成代码修改、不进入自动化流程，要求补充确认信息，并必须有负责人确认。
-
-### CONFIRM_WITH_DEFAULT
-
-表示：可以继续讨论，但不能直接执行。
-
-适用情况：
-
-- 需求存在灰色风险
-- 上下文缺失
-- 权限需要确认
-- 批量修改但可控
-- 可以通过默认安全策略降低风险
-- 需要人工确认执行范围
-
-UI 表现：
-
-```json
-{
-  "type": "ConfirmDialog",
-  "theme": "yellow",
-  "interaction_mode": "user_confirm"
-}
-```
-
-系统行为：弹确认，给出默认安全方案，要求用户确认，支持 dry-run 和影响范围预览。
-
-### AUTO_DEFEND
-
-表示：可以自动执行，但必须保留工程防护。
-
-适用情况：
-
-- 只读操作
-- 当前组织内
-- 不修改数据
-- 不删除数据
-- 不改变状态
-- 有明确输入范围
-- 风险较低
-
-UI 表现：
-
-```json
-{
-  "type": "SilentExecutionPanel",
-  "theme": "green",
-  "interaction_mode": "auto_execute"
-}
-```
-
-系统行为：可以继续执行，但要自动加保护、保留日志、限制范围，并输出执行摘要。
-
-## 推荐使用方式
-
-### 方式 1：作为 Codex Skill 使用
-
-```text
-请使用 prd-gatekeeper-cn skill 审核下面需求。
-
-要求：
-1. 必须输出 ADRS Output Contract
-2. 必须包含 decision、risk_level、execution_plan、ui_render_spec、decision_trace、replay_id
-3. 必须遵守 Risk Gate > business_flat > SKILL.md workflow > LLM fallback 的优先级
-4. 不允许跳过 BLOCK / CONFIRM_WITH_DEFAULT / AUTO_DEFEND 判断
-
-需求：
-{你的需求内容}
-```
-
-### 方式 2：作为需求评审模板使用
-
-```text
-请按 prd-gatekeeper-cn 的规则审查这个 PRD。
-重点检查：
-- 是否有不可逆操作
-- 是否有跨组织数据风险
-- 是否有批量修改风险
-- 是否需要审计日志
-- 是否应该默认 BLOCK 或 CONFIRM
-```
-
-### 方式 3：作为 AI Agent 执行前置网关
-
-```text
-Agent 准备执行动作：
-{action}
-
-上下文：
-{context}
-
-请使用 prd-gatekeeper-cn 判断是否允许执行。
-```
-
-根据结果处理：
-
-```text
-BLOCK                  不执行
-CONFIRM_WITH_DEFAULT   请求人工确认
-AUTO_DEFEND            自动执行并保留日志
-```
-
-## 最小验证案例
-
-你可以用下面三个案例快速验证 Skill 是否有效。
-
-### Case 1：高风险批量删除
-
-```text
-我要批量删除 200 条工单，其中可能包含其他组织的数据。
-```
-
-期望：
-
-```text
-decision = BLOCK
-risk_level = HIGH
-ui_render_spec.type = HardStopPanel
-```
-
-### Case 2：安全只读导出
-
-```text
-我要导出当前组织下 100 条商品候选数据，只读导出，不修改、不删除、不跨组织。
-```
-
-期望：
-
-```text
-decision = AUTO_DEFEND
-risk_level = LOW
-ui_render_spec.type = SilentExecutionPanel
-```
-
-### Case 3：切换组织但授权不明
-
-```text
-用户要从当前组织切换到另一个组织查看数据，但当前请求没有提供明确授权信息。
-```
-
-期望：
-
-```text
-decision = CONFIRM_WITH_DEFAULT
-risk_level = MEDIUM
-ui_render_spec.type = ConfirmDialog
-```
-
-## 不适合做什么
-
-`prd-gatekeeper-cn` 不是完整运行时系统，也不是权限系统本身。
-
-它不负责：
-
-- 真实数据库权限校验
-- 真实删除 / 导出 / 发布动作
-- 真实 replay 存储
-- 业务系统鉴权
-- 自动修复所有 PRD
-- 替代测试用例
-- 替代安全审计
-- 替代人工最终责任
-
-它更适合作为：
-
-> AI Agent / Codex / 研发流程执行前的结构化风险网关。
-
-## Version Scope
-
-`v0.1.0` is a Skill-only MVP.
-
-| In Scope | Out of Scope |
+| decision | UI |
 | --- | --- |
-| Codex Skill package | Runtime engine |
-| Chinese PRD and requirement gatekeeping | Database |
-| Risk Gate, business_flat, and delivery report references | Real replay storage |
-| ADRS-style output contract | CLI |
-| Explainable decision trace | Platform registry |
+| `BLOCK` | `HardStopPanel` red interrupt flow |
+| `CONFIRM_WITH_DEFAULT` | `ConfirmDialog` yellow user confirmation |
+| `AUTO_DEFEND` | `SilentExecutionPanel` green audit log |
+
+Execution path:
+
+```text
+validate_input ->
+apply_business_flat ->
+apply_risk_gate ->
+resolve_decision ->
+emit_action
+```
 
 ## Repository Layout
 
 ```text
 SKILL.md
+README.md
+README.en.md
 agents/openai.yaml
 references/
   business-flat-templates.md
@@ -513,34 +289,54 @@ references/
   risk-gate-examples.md
   runtime-architecture.md
 examples/
-  bulk-delete-cross-org-block.md
+  ai-delete-failed-orders-block.md
+  cross-org-access-confirm.md
+  readonly-export-auto-defend.md
+  code-change-requires-inspection.md
   batch-export-auto-defend.md
+  bulk-delete-cross-org-block.md
   switch-org-confirm.md
 ```
 
-## Install
+The last three files are earlier golden cases kept for compatibility with existing links and local tests.
 
-Clone or copy this repository into your Codex skills directory:
+## Version Scope
 
-```bash
-git clone https://github.com/zyuanLiang/prd-gatekeeper-cn.git ~/.codex/skills/prd-gatekeeper-cn
-```
+`v0.1.0` is a Skill-first MVP.
 
-Then ask Codex to use `$prd-gatekeeper-cn` when reviewing a Chinese PRD, Issue, or product request before implementation.
+| In Scope | Out of Scope |
+| --- | --- |
+| Codex Skill package | MCP server |
+| Chinese PRD and requirement gatekeeping | CLI |
+| Repository inspection discipline | Runtime engine |
+| Risk Gate, business_flat, ADRS output contract | Database or durable replay storage |
+| Explainable decision trace | Real permission enforcement |
 
-## 一句话总结
+This Skill is not a PRD generator, not a complete runtime, and not a replacement for authorization, testing, audit, or human business ownership. It is a safety gate before AI-assisted implementation or execution.
 
-`prd-gatekeeper-cn` 的价值不是让 AI 更会写代码，而是让 AI 在执行需求前更稳、更可控、更可解释。
-
-它适合用来回答：
+## Recommended GitHub Topics
 
 ```text
-这个需求能不能直接做？
-这个动作能不能让 AI 自动执行？
-这个批量操作是否应该阻断？
-这个 PRD 里有没有隐藏的数据、权限、审计和不可逆风险？
+codex-skill
+ai-agent
+ai-coding
+prd-review
+risk-gate
+requirements-engineering
+chinese
 ```
 
-最终目标：
+## v0.1.0 Release Checklist
 
-> 在 AI Agent 和真实业务系统之间，加一层可解释、可审计、可渲染的风险决策网关。
+| Item | Status |
+| --- | --- |
+| Clear first-screen positioning | Done |
+| Copy-paste quick start | Done |
+| Three golden cases | Done |
+| MIT License | Done |
+| English README | Done |
+| Core Risk Gate semantics unchanged | Done |
+
+## License
+
+MIT
